@@ -1,0 +1,21 @@
+nodes:
+- id: PatientsTable
+  name: causalfence-broken-PatientsTable-ZHRP83O3PCX3
+  kind: dynamodb
+  sensitivity: phi
+- id: HospitalApi
+  name: hospital-api-broken
+  kind: apigateway
+  trust: public
+- id: PatientLambda
+  name: causalfence-broken-PatientLambda-68DyQdlv4fbY
+  kind: lambda
+edges:
+- from: HospitalApi
+  to: PatientLambda
+  label: ANY /patients
+- from: PatientLambda
+  to: PatientsTable
+  label: dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem,
+    dynamodb:DeleteItem, dynamodb:DescribeTable, dynamodb:GetItem, dynamodb:PutItem,
+    dynamodb:Query, dynamodb:Scan, dynamodb:UpdateItem

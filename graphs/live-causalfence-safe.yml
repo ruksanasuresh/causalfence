@@ -1,0 +1,28 @@
+nodes:
+- id: PatientsTable
+  name: causalfence-safe-PatientsTable-ROQAASLGDW1W
+  kind: dynamodb
+  sensitivity: phi
+- id: HospitalApi
+  name: hospital-api-safe
+  kind: apigateway
+  trust: public
+- id: PatientLambda
+  name: causalfence-safe-PatientLambda-ZC4KxKe904Iw
+  kind: lambda
+- id: AuthLambda
+  name: causalfence-safe-AuthLambda-5wNmYbW61vWF
+  kind: lambda
+  role: auth
+edges:
+- from: HospitalApi
+  to: AuthLambda
+  label: ANY /patients
+- from: AuthLambda
+  to: PatientLambda
+  label: authorizes
+- from: PatientLambda
+  to: PatientsTable
+  label: dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem,
+    dynamodb:DeleteItem, dynamodb:DescribeTable, dynamodb:GetItem, dynamodb:PutItem,
+    dynamodb:Query, dynamodb:Scan, dynamodb:UpdateItem
