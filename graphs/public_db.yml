@@ -1,0 +1,24 @@
+nodes:
+  - id: public-api
+    name: Hospital Public API
+    kind: apigateway
+    trust: public
+    tags: [public]
+  - id: auth-lambda
+    name: auth-lambda
+    kind: lambda
+    role: auth
+    tags: [auth]
+  - id: phi-table
+    name: Patients
+    kind: dynamodb
+    sensitivity: phi
+    tags: [phi]
+
+edges:
+  - from: public-api
+    to: auth-lambda
+    label: ANY /patients
+  - from: public-api
+    to: phi-table
+    label: direct DynamoDB integration

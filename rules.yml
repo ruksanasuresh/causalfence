@@ -1,0 +1,20 @@
+rules:
+  AUTH_BYPASS:
+    severity: HIGH
+    penalty: 30
+    remediation: >
+      Route the public entry point through the authentication node
+      (for example, attach an authorizer to the API Gateway route).
+  PUBLIC_DB_EXPOSURE:
+    severity: CRITICAL
+    penalty: 40
+    remediation: >
+      Remove the direct connection from the public entry point to the
+      database. Put an authenticated application layer in between.
+scoring:
+  start: 100
+  labels:
+    - { min: 90, label: SAFE }
+    - { min: 70, label: LOW RISK }
+    - { min: 50, label: MEDIUM RISK }
+    - { min: 0,  label: HIGH RISK }
