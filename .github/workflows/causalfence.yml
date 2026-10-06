@@ -1,0 +1,39 @@
+name: CausalFence
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  security-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install networkx pyyaml pytest boto3
+
+      - name: Unit tests
+        run: python -m pytest -v
+
+      - name: CausalFence architecture check
+        shell: bash
+        run: |
+          python -m causalfence architecture.yml | tee causalfence-report.txt
+          echo '### CausalFence result' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat causalfence-report.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causalfence-report
+          path: causalfence-report.txt
