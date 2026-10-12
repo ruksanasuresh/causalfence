@@ -23,6 +23,8 @@ class Finding:
     severity: str
     penalty: int
     remediation: str
+    evidence: list = field(default_factory=list)  # human-readable proof lines
+    fix_snippet: str = ""                          # text to copy into the template
 
 
 @dataclass
@@ -35,8 +37,39 @@ class Result:
         return sum(f.penalty for f in self.findings)
 
 
-def _finding(rules, rule_id, path, message) -> Finding:
+def _where(attrs, source_file):
+    """'template line 89' or 'live AWS' - where a fact was found."""
+    if attrs.get("line"):
+        return f"{source_file or 'template'}, line {attrs['line']}"
+    return "live AWS scan"
+
+
+def build_evidence(G, path):
+    """One proof line per connection on the path, with file/line when known."""
+    src_file = G.graph.get("source_file")
+    lines = []
+    for a, b in zip(path, path[1:]):
+        e = G.edges[a, b]
+        res = f" (resource {e['resource']})" if e.get("resource") else ""
+        lines.append(f"{a} -> {b} via '{e.get('label', '')}'{res} "
+                     f"[{_where(e, src_file)}]")
+    return lines
+
+
+def _fix_context(G, path):
+    """Details that fill the {resource}/{line} placeholders of a fix snippet."""
+    e = G.edges[path[0], path[1]] if len(path) > 1 else {}
+    return {"resource": e.get("resource") or "<your route>",
+            "line": e.get("line") or "?",
+            "label": e.get("label", "")}
+
+
+def _finding(rules, rule_id, path, message, G=None) -> Finding:
     r = rules[rule_id]
+    evidence, snippet = [], ""
+    if G is not None:
+        evidence = build_evidence(G, path)
+        snippet = r.get("fix_snippet", "").format(**_fix_context(G, path)).rstrip()
     return Finding(
         rule=rule_id,
         path=path,
@@ -44,6 +77,8 @@ def _finding(rules, rule_id, path, message) -> Finding:
         severity=r["severity"],
         penalty=r["penalty"],
         remediation=" ".join(r["remediation"].split()),
+        evidence=evidence,
+        fix_snippet=snippet,
     )
 
 
@@ -62,6 +97,7 @@ def check_auth_required(G: nx.DiGraph, rules: dict) -> list:
                         f"Public entry '{src}' reaches sensitive resource "
                         f"'{dst}' without passing through an authentication "
                         f"node: " + " -> ".join(path),
+                        G,
                     ))
     return findings
 
@@ -76,6 +112,7 @@ def check_public_db_exposure(G: nx.DiGraph, rules: dict) -> list:
                     rules, "PUBLIC_DB_EXPOSURE", [src, dst],
                     f"Public entry '{src}' is directly connected to "
                     f"sensitive resource '{dst}': {src} -> {dst}",
+                    G,
                 ))
     return findings
 

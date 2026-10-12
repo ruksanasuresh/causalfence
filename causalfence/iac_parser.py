@@ -315,6 +315,7 @@ def main(argv=None):
     overrides = dict(x.split("=", 1) for x in a.param)
     graph = parse_template(a.template, overrides)
     warnings = graph.pop("warnings")
+    graph["source_file"] = str(a.template).replace("\\", "/")
     suffix = "-".join(overrides.values()) or "default"
     out = a.out or f"graphs/template-{suffix}.yml"
     Path(out).parent.mkdir(parents=True, exist_ok=True)

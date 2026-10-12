@@ -5,12 +5,19 @@ rules:
     remediation: >
       Route the public entry point through the authentication node
       (for example, attach an authorizer to the API Gateway route).
+    fix_snippet: |
+      # infra/template.yaml - resource {resource} (line {line})
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref <YourAuthorizer>
   PUBLIC_DB_EXPOSURE:
     severity: CRITICAL
     penalty: 40
     remediation: >
       Remove the direct connection from the public entry point to the
       database. Put an authenticated application layer in between.
+    fix_snippet: |
+      # Remove the direct link '{label}' (resource {resource}, line {line})
+      # and route it through an authenticated Lambda instead.
 scoring:
   start: 100
   labels:
