@@ -1,0 +1,40 @@
+nodes:
+- id: PatientsTable
+  name: PatientsTable
+  kind: dynamodb
+  source: template
+  line: 21
+  sensitivity: phi
+- id: PatientLambda
+  name: PatientLambda
+  kind: lambda
+  source: template
+  line: 35
+- id: AuthLambda
+  name: AuthLambda
+  kind: lambda
+  source: template
+  line: 47
+  role: auth
+- id: HospitalApi
+  name: HospitalApi
+  kind: apigateway
+  source: template
+  line: 54
+  trust: public
+edges:
+- from: HospitalApi
+  to: AuthLambda
+  label: ANY /patients
+  resource: PatientsRoute
+  line: 89
+- from: AuthLambda
+  to: PatientLambda
+  label: authorizes
+  resource: PatientsRoute
+  line: 89
+- from: PatientLambda
+  to: PatientsTable
+  label: DynamoDBCrudPolicy
+  resource: PatientLambda
+  line: 35

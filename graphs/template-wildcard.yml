@@ -1,0 +1,33 @@
+nodes:
+- id: ReportsTable
+  name: ReportsTable
+  kind: dynamodb
+  source: template
+  line: 10
+  sensitivity: phi
+- id: ReportLambda
+  name: ReportLambda
+  kind: lambda
+  source: template
+  line: 23
+- id: ReportLambdaUrl
+  name: ReportLambdaUrl
+  kind: lambda-url
+  source: template
+  line: 23
+  trust: public
+  auth_type: AWS_IAM
+  role: auth
+edges:
+- from: ReportLambdaUrl
+  to: ReportLambda
+  label: Function URL (AuthType AWS_IAM)
+  resource: ReportLambda
+  line: 23
+- from: ReportLambda
+  to: ReportsTable
+  label: dynamodb:*
+  resource: ReportLambda
+  line: 23
+  wildcard: true
+source_file: infra/demo-stacks/wildcard-app.yaml

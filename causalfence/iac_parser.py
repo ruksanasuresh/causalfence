@@ -20,6 +20,7 @@ SUPPORTED = {
     "AWS::DynamoDB::Table", "AWS::Serverless::Function", "AWS::Lambda::Function",
     "AWS::ApiGatewayV2::Api", "AWS::ApiGatewayV2::Integration",
     "AWS::ApiGatewayV2::Authorizer", "AWS::ApiGatewayV2::Route",
+    "AWS::Lambda::Url", "AWS::S3::Bucket", "AWS::S3::BucketPolicy",
 }
 # Types that carry no routing/data-access information for the current rules.
 IGNORED = {
@@ -199,9 +200,9 @@ def parse_template(path, params=None):
         nodes.setdefault(nid, {"id": nid, **attrs})
         return nodes[nid]
 
-    def edge(src, dst, label, resource):
+    def edge(src, dst, label, resource, **extra):
         edges.append({"from": src, "to": dst, "label": label,
-                      "resource": resource, "line": lines.get(resource)})
+                      "resource": resource, "line": lines.get(resource), **extra})
 
     by_type = lambda t: {r: v for r, v in resources.items() if v["Type"] == t}
 
@@ -221,6 +222,57 @@ def parse_template(path, params=None):
             attrs["trust"] = "public"
         node(rid, **attrs)
 
+    # 1b. Lambda Function URLs (SAM FunctionUrlConfig or AWS::Lambda::Url)
+    fn_types = ("AWS::Serverless::Function", "AWS::Lambda::Function")
+    url_specs = []  # (url resource id, function id, AuthType)
+    for rid, r in resources.items():
+        if r["Type"] in fn_types:
+            cfg = r["Properties"].get("FunctionUrlConfig")
+            if isinstance(cfg, dict):
+                url_specs.append((rid, rid, str(cfg.get("AuthType", "AWS_IAM")).upper()))
+    for rid, r in by_type("AWS::Lambda::Url").items():
+        target = next((x for x in _refs(r["Properties"].get("TargetFunctionArn"), known)
+                       if resources[x]["Type"] in fn_types), None)
+        if target:
+            url_specs.append((rid, target, str(r["Properties"].get("AuthType", "AWS_IAM")).upper()))
+    for res_id, fn, auth in url_specs:
+        url_id = f"{fn}Url"
+        attrs = dict(name=url_id, kind="lambda-url", source="template",
+                     line=lines.get(res_id), trust="public", auth_type=auth)
+        if auth != "NONE":
+            attrs["role"] = "auth"   # AWS_IAM: callers must sign requests
+        node(url_id, **attrs)
+        edge(url_id, fn, f"Function URL (AuthType {auth})", res_id)
+    # 1c. S3 buckets: flag the ones that anyone on the internet can read
+    policy_for = {}
+    for rid, r in by_type("AWS::S3::BucketPolicy").items():
+        for b in _refs(r["Properties"].get("Bucket"), known):
+            policy_for.setdefault(b, []).append((rid, r["Properties"].get("PolicyDocument") or {}))
+    for rid, r in by_type("AWS::S3::Bucket").items():
+        props = r["Properties"]
+        attrs = {"name": rid, "kind": "s3", "source": "template", "line": lines.get(rid)}
+        sensitivity = _tags(props).get("sensitivity")
+        if sensitivity:
+            attrs["sensitivity"] = sensitivity
+        pab = props.get("PublicAccessBlockConfiguration") or {}
+        blocked = all(pab.get(k) in (True, "true", "True") for k in
+                      ("BlockPublicAcls", "BlockPublicPolicy",
+                       "IgnorePublicAcls", "RestrictPublicBuckets"))
+        reason = None
+        if props.get("AccessControl") in ("PublicRead", "PublicReadWrite"):
+            reason, where = f"ACL {props['AccessControl']}", rid
+        for pol_id, doc in policy_for.get(rid, []):
+            stmts = doc.get("Statement", [])
+            for st in stmts if isinstance(stmts, list) else [stmts]:
+                principal = st.get("Principal")
+                anyone = principal == "*" or (isinstance(principal, dict)
+                                              and principal.get("AWS") == "*")
+                if st.get("Effect") == "Allow" and anyone and "Condition" not in st:
+                    reason, where = "bucket policy allows Principal '*'", pol_id
+        if reason and not blocked:
+            attrs.update(public_read=True, exposure_reason=reason,
+                         exposure_resource=where, exposure_line=lines.get(where))
+        node(rid, **attrs)
     # 2. Routes, integrations, authorizers -> edges
     integrations = {}
     for rid, r in by_type("AWS::ApiGatewayV2::Integration").items():
@@ -294,8 +346,11 @@ def parse_template(path, params=None):
                         hit |= set(_refs(x, known)) & tables
                         if x == "*":
                             hit |= tables
+                    wildcard = (any(a == "*" or str(a).endswith(":*") for a in acts)
+                                or "*" in res)
                     for t in sorted(hit):
-                        edge(rid, t, ", ".join(sorted(acts)), rid)
+                        extra = {"wildcard": True} if wildcard else {}
+                        edge(rid, t, ", ".join(sorted(acts)), rid, **extra)
 
     for rid, r in resources.items():
         if r["Type"] not in SUPPORTED | IGNORED:

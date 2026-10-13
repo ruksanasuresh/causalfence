@@ -5,3 +5,4 @@ __pycache__/
 .env
 .aws/
 .aws-sam/
+.aws-sam/

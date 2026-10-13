@@ -113,9 +113,9 @@ def test_jwt_route_gets_a_virtual_auth_node(tmp_path):
     data = _mini(tmp_path, "JWT")
     ids, edges = _shape(data)
     assert "jwt-auth" in ids and ("Api", "jwt-auth") in edges and ("jwt-auth", "Fn") in edges
-    assert run_all_checks(_graph(tmp_path, data)).passed
-
-
+    rules = {f.rule for f in run_all_checks(_graph(tmp_path, data)).findings}
+    # the auth rules are satisfied; the sample's dynamodb:* is a separate rule
+    assert not rules & {"AUTH_BYPASS", "PUBLIC_DB_EXPOSURE"}
 def test_open_route_is_flagged(tmp_path):
     data = _mini(tmp_path, "NONE")
     assert not run_all_checks(_graph(tmp_path, data)).passed
