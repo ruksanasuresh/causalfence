@@ -1,0 +1,24 @@
+nodes:
+- id: ReportsTable
+  name: causalfence-urlopen-ReportsTable-RZ6GZX5WI0M7
+  kind: dynamodb
+  sensitivity: phi
+- id: ReportLambda
+  name: causalfence-urlopen-ReportLambda-aTlRJD5am1Sl
+  kind: lambda
+- id: ReportLambdaUrl
+  name: ReportLambdaUrl
+  kind: lambda-url
+  trust: public
+  auth_type: NONE
+edges:
+- from: ReportLambdaUrl
+  to: ReportLambda
+  label: Function URL (AuthType NONE)
+  resource: ReportLambda
+- from: ReportLambda
+  to: ReportsTable
+  label: dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem,
+    dynamodb:DeleteItem, dynamodb:DescribeTable, dynamodb:GetItem, dynamodb:PutItem,
+    dynamodb:Query, dynamodb:Scan, dynamodb:UpdateItem
+  resource: ReportLambda
