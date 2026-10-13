@@ -61,6 +61,8 @@ def _fix_context(G, path, edge=None):
     e = edge or (G.edges[path[0], path[1]] if len(path) > 1 else {})
     return {"resource": e.get("resource") or "<your route>",
             "line": e.get("line") or "?",
+            "where": f"line {e['line']}" if e.get("line") else "live stack",
+            "sink": path[-1],
             "label": e.get("label", "")}
 def _finding(rules, rule_id, path, message, G=None, evidence=None,
              context=None) -> Finding:
@@ -173,7 +175,9 @@ def check_public_s3(G: nx.DiGraph, rules: dict) -> list:
                 f"({d.get('exposure_reason')}).",
                 G, evidence=evidence,
                 context={"resource": d.get("exposure_resource") or n,
-                         "line": where or "?", "label": ""}))
+                         "line": where or "?", "label": "",
+                         "where": f"line {where}" if where else "live stack",
+                         "sink": n}))
     return findings
 def run_all_checks(G: nx.DiGraph, rules: dict = None) -> Result:
     """Run every rule. Most severe findings come first."""

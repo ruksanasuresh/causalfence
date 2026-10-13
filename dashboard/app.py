@@ -35,6 +35,20 @@ def build_dot(G, findings) -> str:
         lines.append(f'"{esc(u)}" -> "{esc(v)}" [label="{esc(d.get("label", ""))}", {style}];')
     lines.append("}")
     return "\n".join(lines)
+@st.cache_data(ttl=30, show_spinner=False)
+def list_stacks(region, prefix):
+    """Names of live CloudFormation stacks in a region. Returns (names, error)."""
+    try:
+        import boto3
+        cfn = boto3.session.Session(region_name=region).client("cloudformation")
+        names = []
+        for page in cfn.get_paginator("list_stacks").paginate():
+            for item in page["StackSummaries"]:
+                if item["StackStatus"] != "DELETE_COMPLETE" and item["StackName"].startswith(prefix):
+                    names.append(item["StackName"])
+        return sorted(set(names)), None
+    except Exception as e:
+        return [], str(e)
 st.set_page_config(page_title="CausalFence", layout="wide")
 st.title("CausalFence: AWS Architecture Security Testing Dashboard")
 source = st.sidebar.radio("Graph source", ["Graph file", "Scan live AWS stack"])
@@ -44,9 +58,18 @@ if source == "Graph file":
     choice = st.sidebar.selectbox("Choose a graph", files)
     G = load_graph(str(ROOT / "graphs" / choice))
 else:
-    stack = st.sidebar.text_input("CloudFormation stack name", "causalfence-broken")
     region = st.sidebar.text_input("Region", "ap-south-1")
-    if st.sidebar.button("Scan now"):
+    prefix = st.sidebar.text_input("Show stacks starting with", "causalfence-")
+    stacks, list_error = list_stacks(region, prefix)
+    if list_error:
+        st.sidebar.warning(f"Could not list stacks ({list_error}). Type the name instead.")
+        stack = st.sidebar.text_input("CloudFormation stack name", "causalfence-broken")
+    elif not stacks:
+        st.sidebar.warning("No matching stacks found in this region.")
+        stack = None
+    else:
+        stack = st.sidebar.selectbox("Deployed stack", stacks)
+    if st.sidebar.button("Scan now", disabled=not stack):
         from causalfence.scanner import scan_stack
         try:
             data = scan_stack(stack, region)
@@ -54,10 +77,12 @@ else:
                                              encoding="utf-8") as tmp:
                 yaml.safe_dump(data, tmp, sort_keys=False)
             st.session_state["live_graph"] = tmp.name
+            st.session_state["live_stack"] = stack
         except Exception as e:
             st.error(f"Scan failed: {e}")
     if "live_graph" in st.session_state:
         G = load_graph(st.session_state["live_graph"])
+        st.caption(f"Showing live scan of stack: {st.session_state.get('live_stack')}")
 if G is None:
     st.info("Pick a graph file, or scan a live stack from the sidebar.")
     st.stop()
