@@ -1,0 +1,42 @@
+﻿AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CausalFence toy hospital reports app - wildcard IAM permission (demo only, delete after)
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 10
+    MemorySize: 128
+Resources:
+  ReportsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: patient_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: patient_id
+          KeyType: HASH
+      Tags:
+        - Key: sensitivity
+          Value: phi
+  ReportLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/reports/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ReportsTable
+      # The URL is protected: callers must sign requests with AWS credentials
+      FunctionUrlConfig:
+        AuthType: AWS_IAM
+      # Weakness: dynamodb:* instead of only the actions the code needs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: "dynamodb:*"
+              Resource: !GetAtt ReportsTable.Arn
+Outputs:
+  ReportUrl:
+    Value: !GetAtt ReportLambdaUrl.FunctionUrl

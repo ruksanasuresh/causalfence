@@ -1,0 +1,24 @@
+nodes:
+- id: ReportsTable
+  name: causalfence-wildcard-ReportsTable-DQKR016VWC5S
+  kind: dynamodb
+  sensitivity: phi
+- id: ReportLambda
+  name: causalfence-wildcard-ReportLambda-R3aQCot9q23f
+  kind: lambda
+- id: ReportLambdaUrl
+  name: ReportLambdaUrl
+  kind: lambda-url
+  trust: public
+  auth_type: AWS_IAM
+  role: auth
+edges:
+- from: ReportLambdaUrl
+  to: ReportLambda
+  label: Function URL (AuthType AWS_IAM)
+  resource: ReportLambda
+- from: ReportLambda
+  to: ReportsTable
+  label: dynamodb:*
+  resource: ReportLambda
+  wildcard: true

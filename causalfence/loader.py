@@ -12,6 +12,8 @@ def load_graph(path: str) -> nx.DiGraph:
         data = yaml.safe_load(f) or {}
 
     G = nx.DiGraph()
+    # Where the graph came from (set by iac_parser); used for evidence
+    G.graph["source_file"] = data.get("source_file")
 
     # Nodes: every attribute except "id" is stored on the node
     for node in data.get("nodes", []):
@@ -26,12 +28,15 @@ def load_graph(path: str) -> nx.DiGraph:
         for end in (src, dst):
             if end not in G:
                 raise GraphError(f"Edge refers to unknown node '{end}': {edge}")
-        G.add_edge(src, dst, label=edge.get("label", ""))
+        # Keep every detail (label, resource, line, ...) for evidence later
+        attrs = {k: v for k, v in edge.items() if k not in ("from", "to")}
+        attrs.setdefault("label", "")
+        G.add_edge(src, dst, **attrs)
 
     return G
 
 
-# Helpers the rule engine will use in Phase 3
+# Helpers the rule engine uses
 def public_nodes(G):
     return [n for n, d in G.nodes(data=True) if d.get("trust") == "public"]
 

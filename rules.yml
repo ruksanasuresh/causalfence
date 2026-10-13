@@ -5,12 +5,55 @@ rules:
     remediation: >
       Route the public entry point through the authentication node
       (for example, attach an authorizer to the API Gateway route).
+    fix_snippet: |
+      # infra/template.yaml - resource {resource} ({where})
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref <YourAuthorizer>
   PUBLIC_DB_EXPOSURE:
     severity: CRITICAL
     penalty: 40
     remediation: >
       Remove the direct connection from the public entry point to the
       database. Put an authenticated application layer in between.
+    fix_snippet: |
+      # Remove the direct link '{label}' (resource {resource}, {where})
+      # and route it through an authenticated Lambda instead.
+  LAMBDA_URL_OPEN:
+    severity: HIGH
+    penalty: 30
+    remediation: >
+      Do not expose the Lambda Function URL without authentication. Use
+      AuthType AWS_IAM, or put the function behind API Gateway with an
+      authorizer.
+    fix_snippet: |
+      # {resource} ({where}) - Lambda Function URL
+      AuthType: AWS_IAM      # instead of NONE
+  OVERBROAD_IAM:
+    severity: MEDIUM
+    penalty: 15
+    remediation: >
+      Replace the wildcard permission with the specific actions and the
+      specific table the function needs (least privilege).
+    fix_snippet: |
+      # {resource} ({where}) - replace the wildcard grant
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource: !GetAtt {sink}.Arn
+  PUBLIC_S3_BUCKET:
+    severity: HIGH
+    penalty: 30
+    remediation: >
+      Turn on S3 Block Public Access and remove any bucket policy or ACL
+      that grants access to everyone.
+    fix_snippet: |
+      # {resource} ({where})
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # ...and delete the Allow statement whose Principal is "*"
 scoring:
   start: 100
   labels:

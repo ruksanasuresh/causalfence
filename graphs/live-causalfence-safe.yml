@@ -18,11 +18,14 @@ edges:
 - from: HospitalApi
   to: AuthLambda
   label: ANY /patients
+  resource: PatientsRoute
 - from: AuthLambda
   to: PatientLambda
   label: authorizes
+  resource: PatientsRoute
 - from: PatientLambda
   to: PatientsTable
   label: dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem,
     dynamodb:DeleteItem, dynamodb:DescribeTable, dynamodb:GetItem, dynamodb:PutItem,
     dynamodb:Query, dynamodb:Scan, dynamodb:UpdateItem
+  resource: PatientLambda

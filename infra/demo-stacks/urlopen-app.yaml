@@ -1,0 +1,40 @@
+﻿AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CausalFence toy hospital reports app - open Function URL (demo only, delete after)
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 10
+    MemorySize: 128
+Resources:
+  ReportsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: patient_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: patient_id
+          KeyType: HASH
+      Tags:
+        - Key: sensitivity
+          Value: phi
+  ReportLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/reports/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ReportsTable
+      # Weakness: anyone on the internet can call this URL (no auth)
+      FunctionUrlConfig:
+        AuthType: NONE
+      # Permissions are correctly scoped to this one table
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReportsTable
+Outputs:
+  ReportUrl:
+    Value: !GetAtt ReportLambdaUrl.FunctionUrl
