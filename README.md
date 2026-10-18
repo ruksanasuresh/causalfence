@@ -29,13 +29,15 @@ Most checks look at one resource at a time: *"is the API protected?"*, *"is the 
 
 ### The five rules
 
-| Rule | Severity | What it catches |
-|---|---|---|
-| `AUTH_BYPASS` | HIGH | A public entry reaches sensitive data with no authentication on the path |
-| `PUBLIC_DB_EXPOSURE` | CRITICAL | A public entry connects straight to the database |
-| `LAMBDA_URL_OPEN` | HIGH | A Lambda Function URL with `AuthType: NONE` |
-| `OVERBROAD_IAM` | MEDIUM | A wildcard permission (such as `dynamodb:*`) on a path from a public entry to sensitive data |
-| `PUBLIC_S3_BUCKET` | HIGH | A publicly readable S3 bucket |
+All five rules are implemented in the engine and run on every scan. Three of them are demonstrated on the real AWS stacks below.
+
+| Rule | Severity | What it catches | Status |
+|---|---|---|---|
+| `AUTH_BYPASS` | HIGH | A public entry reaches sensitive data with no authentication on the path | Shown on real AWS (`causalfence-broken`) |
+| `LAMBDA_URL_OPEN` | HIGH | A Lambda Function URL with `AuthType: NONE` | Shown on real AWS (`causalfence-urlopen`) |
+| `OVERBROAD_IAM` | MEDIUM | A wildcard permission (such as `dynamodb:*`) on a path from a public entry to sensitive data | Shown on real AWS (`causalfence-safewildcard`) |
+| `PUBLIC_DB_EXPOSURE` | CRITICAL | A public entry connects straight to the database | Implemented, tested on sample graphs only |
+| `PUBLIC_S3_BUCKET` | HIGH | A publicly readable S3 bucket | Implemented, unit-tested on sample templates and mocked scans, not tried on real AWS |
 
 ## Architecture
 
@@ -128,8 +130,7 @@ rules.yml         severity, remediation and fix snippet for each rule
 ## Limitations
 
 - The GitHub gate scans `infra/template.yaml` with its default parameters.
-- `PUBLIC_S3_BUCKET` is covered by unit tests on sample templates but has not been tried on real AWS.
-- None of the four stacks triggers `PUBLIC_DB_EXPOSURE`.
+- Only three of the five rules (`AUTH_BYPASS`, `LAMBDA_URL_OPEN`, `OVERBROAD_IAM`) are demonstrated on real AWS stacks. `PUBLIC_DB_EXPOSURE` and `PUBLIC_S3_BUCKET` are implemented and unit-tested but have not been shown on a deployed stack.
 - It looks for authentication on the path. It does not test whether the authentication logic itself is correct.
 
 ## Presentation
@@ -138,5 +139,4 @@ The project slides are in the repository: [View the presentation (PDF)](docs/Cau
 
 ## Author
 
-**Ruksana S** (24MIS0293), Vellore Institute of Technology.
-Built for the Agile Development and DevOps course.
+**Ruksana S**
